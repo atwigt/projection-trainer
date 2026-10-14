@@ -22,6 +22,18 @@ npm test           # projection-math and scenario tests
 npm run build      # static site in dist/ (can be opened from any web server)
 ```
 
+## Hosting (Railway)
+
+`railway.json` and `npm start` (a dependency-free static server, `server.mjs`)
+are set up for Railway. In Railway:
+
+1. New Project → Deploy from GitHub repo → pick this repository.
+2. Service Settings → Root Directory: `/radiography-trainer`.
+3. Networking → Generate Domain.
+
+Railway builds with `npm run build`, starts with `npm start` and listens on its
+`$PORT`.
+
 ## How the geometry works
 
 | Frame | Axes |
