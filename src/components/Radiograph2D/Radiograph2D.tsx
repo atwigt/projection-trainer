@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { Landmark } from "../../data/types";
+import { geometryWarning } from "../../geometry/geometryWarningText";
 import { type ImageResult, type Shape2D, lineXAt } from "../../geometry/image";
 import { offsetShort } from "../../geometry/measurementText";
 import type { Vec2 } from "../../geometry/vec";
@@ -41,6 +42,12 @@ function ShapeView({ s }: { s: Shape2D }) {
     />
   );
 }
+
+/**
+ * Layout of the degenerate-geometry banner, in image cm from the top edge of
+ * the receptor. Kept together so the panel can be sized from the baselines.
+ */
+const BANNER = { offsetTop: 4.6, titleGap: 2.5, firstLineGap: 4.3, lineHeight: 1.25, padBottom: 0.6 };
 
 function Arrow({ from, to, color }: { from: Vec2; to: Vec2; color: string }) {
   const dx = to[0] - from[0];
@@ -133,6 +140,15 @@ export function Radiograph2D() {
       }),
     [b, img],
   );
+  const warning = geometryWarning(img.geometryCheck);
+  const banner = {
+    top: -H / 2 + BANNER.offsetTop,
+    titleY: -H / 2 + BANNER.offsetTop + BANNER.titleGap,
+    firstLineY: -H / 2 + BANNER.offsetTop + BANNER.firstLineGap,
+    lineHeight: BANNER.lineHeight,
+  };
+  const bannerHeight = (lines: number) =>
+    BANNER.firstLineGap + BANNER.lineHeight * (lines - 1) + BANNER.padBottom;
   const midlinePts = measureLines[0]?.line ?? [];
   // SC-joint symmetry is an AP/PA criterion; hide it on laterals.
   const measure = showMeasurements && !img.position.isLateral;
@@ -244,6 +260,50 @@ export function Radiograph2D() {
                 fontWeight={m.crossed ? 700 : 400}
               >
                 {b.measurements[i].label}: {m.text}
+              </text>
+            ))}
+          </g>
+        )}
+
+        {/* Degenerate geometry. Drawn over the image, not beside it: the
+            shapes underneath are the thing being disowned. */}
+        {warning && (
+          <g>
+            {/* The panel is sized from the text baselines rather than from a
+                constant, so adding a line cannot push it outside the box. */}
+            <rect
+              x={-W / 2 + 1}
+              y={banner.top}
+              width={W - 2}
+              height={bannerHeight(warning.lines.length)}
+              rx={0.4}
+              fill="#7a0d0d"
+              fillOpacity={0.92}
+              stroke="#ffb3b3"
+              strokeWidth={0.18}
+            />
+            <text
+              x={0}
+              y={banner.titleY}
+              textAnchor="middle"
+              fontSize={1.5}
+              fontWeight={700}
+              fill="#fff"
+              fontFamily="Helvetica, Arial, sans-serif"
+            >
+              {warning.title}
+            </text>
+            {warning.lines.map((line, i) => (
+              <text
+                key={line}
+                x={0}
+                y={banner.firstLineY + banner.lineHeight * i}
+                textAnchor="middle"
+                fontSize={1.05}
+                fill="#ffe3e3"
+                fontFamily="Helvetica, Arial, sans-serif"
+              >
+                {line}
               </text>
             ))}
           </g>

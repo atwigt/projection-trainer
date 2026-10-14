@@ -72,4 +72,14 @@ describe("rendered readouts (default PA chest)", () => {
     expect(text(card())).not.toContain("PAST");
     expect(text(radiograph())).not.toContain("PAST");
   });
+
+  it("draws no geometry warning over an ordinary projection", () => {
+    // Only the negative half of the banner is reachable from here, for the
+    // reason in the header: the default state is the only one that renders.
+    // It is still worth pinning — a warning that fires on a textbook PA chest
+    // would be worse than no warning at all.
+    const t = text(radiograph());
+    expect(t).not.toContain("IMPOSSIBLE GEOMETRY");
+    expect(t).not.toContain("EXTREME MAGNIFICATION");
+  });
 });

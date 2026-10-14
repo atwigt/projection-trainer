@@ -57,4 +57,21 @@ describe("measurement readout sites", () => {
       expect(entry![1], name).toContain("offsetShort");
     }
   });
+
+  it("the radiograph still has the degenerate-geometry banner wired in", () => {
+    // geometryWarning() and its wording are tested properly in
+    // geometryCheck.test.ts. What nothing reaches is the banner as rendered:
+    // the degenerate states need store state that render.test.ts cannot set,
+    // so this is all there is, and it is weaker than the scan above.
+    //
+    // MEASURED: this does NOT catch the banner being made unreachable. The
+    // mutation `{warning && (` -> `{false && (` leaves every identifier below
+    // present and the suite green. It catches deletion, not disablement. The
+    // banner was confirmed to render, and to be legible, by driving the built
+    // app in a browser and looking at both warning states.
+    const src = Object.entries(SOURCES).find(([p]) => rel(p) === "Radiograph2D/Radiograph2D.tsx")![1];
+    expect(src).toContain("geometryWarning");
+    expect(src).toContain("warning.title");
+    expect(src).toContain("warning.lines");
+  });
 });

@@ -60,6 +60,44 @@ export interface MeasurementResult {
   crossed: boolean;
 }
 
+/**
+ * Magnification above which the drawn image is called extreme.
+ *
+ * Measured over the reachable control space, not chosen by taste. 4x fires on
+ * 3.8% of 83,200 sampled beam states, so it stays rare enough to be read as a
+ * warning rather than as decoration, and it fires on nothing the app teaches:
+ * the worst of the defaults and of all six scenarios is 1.73x, and a PA chest
+ * at the app's own default is 1.15x. Clinically, diagnostic radiography keeps
+ * magnification near 1.1-1.25x and deliberate macroradiography stops around
+ * 2x, so 4x is roughly twice the largest magnification anyone does on purpose.
+ * It also sits clear of the inversion boundary below, so the two warnings do
+ * not compete for the same states.
+ */
+export const MAX_SANE_MAGNIFICATION = 4;
+
+/**
+ * Whether the drawn geometry is still a projection a student can read.
+ * Measured over every sample that is actually drawn, not over the controls:
+ * what matters is where the body ended up, not which sliders were moved.
+ */
+export interface GeometryCheck {
+  /**
+   * Smallest perpendicular source-to-object distance over the drawn samples,
+   * cm. Infinity for a parallel beam, which has no focal spot to fall behind.
+   */
+  minSodCm: number;
+  /** Largest magnification over the drawn samples. 1 for a parallel beam. */
+  maxMagnification: number;
+  /**
+   * A drawn sample is at or behind the focal spot, so its ray reaches the IR
+   * only after passing through the spot and the shape is projected inside out.
+   * This is the one the warning exists for: the app was drawing it silently.
+   */
+  inverted: boolean;
+  /** Magnification past `MAX_SANE_MAGNIFICATION`, and not already inverted. */
+  extreme: boolean;
+}
+
 export interface ImageResult {
   setup: Setup;
   position: PositionInfo;
@@ -75,6 +113,7 @@ export interface ImageResult {
   landmarks: Record<string, ProjectedLandmark>;
   shapes: Shape2D[];
   measurements: Record<string, MeasurementResult>;
+  geometryCheck: GeometryCheck;
 }
 
 export function yawOf(body: BodyPart, s: PositioningState): number {
@@ -137,9 +176,25 @@ export function computeImage(body: BodyPart, s: PositioningState): ImageResult {
     ? 0
     : Math.sign(flipped ? -leftWorld[0] : leftWorld[0]);
 
+  // Degenerate-geometry check, accumulated over every point that is drawn —
+  // the shape samples as well as the landmarks — because it is the drawing
+  // that goes wrong, and a landmark inside the body can be healthy while the
+  // torso's front surface is already behind the focal spot.
+  let minSodCm = Infinity;
+  let maxMagnification = 1;
+  const checkPoint = (w: Vec3) => {
+    if (setup.beam !== "divergent") return; // a parallel beam has no focal spot
+    minSodCm = Math.min(minSodCm, setup.source[2] - w[2]);
+    const m = magnificationAt(setup, w);
+    // Past the focal spot the magnification is negative or infinite; those are
+    // what `inverted` is for, and letting them into the maximum would hide it.
+    if (Number.isFinite(m) && m > maxMagnification) maxMagnification = m;
+  };
+
   const landmarks: Record<string, ProjectedLandmark> = {};
   for (const lm of body.landmarks) {
     const w = toWorld(setup, lm.position);
+    checkPoint(w);
     landmarks[lm.id] = {
       id: lm.id,
       display: toDisplay(projectWorld(setup, w)),
@@ -151,6 +206,7 @@ export function computeImage(body: BodyPart, s: PositioningState): ImageResult {
 
   const shapes: Shape2D[] = body.primitives.map((prim) => {
     const world = primitiveSamples(prim).map((p) => toWorld(setup, p));
+    for (const w of world) checkPoint(w);
     const pts = world.map((w) => toDisplay(projectWorld(setup, w)));
     if (prim.kind === "tube") {
       const mag = world.reduce((acc, w) => acc + magnificationAt(setup, w), 0) / world.length;
@@ -182,7 +238,25 @@ export function computeImage(body: BodyPart, s: PositioningState): ImageResult {
     };
   }
 
-  return { setup, position, flipped, convention, markers, landmarks, shapes, measurements };
+  const inverted = minSodCm <= 0;
+  const geometryCheck: GeometryCheck = {
+    minSodCm,
+    maxMagnification,
+    inverted,
+    extreme: !inverted && maxMagnification > MAX_SANE_MAGNIFICATION,
+  };
+
+  return {
+    setup,
+    position,
+    flipped,
+    convention,
+    markers,
+    landmarks,
+    shapes,
+    measurements,
+    geometryCheck,
+  };
 }
 
 /** x of the polyline through `pts` at height y (linear, extrapolated at ends). */
