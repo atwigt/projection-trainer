@@ -75,8 +75,8 @@ function scExplanation(ctx: EvalContext): { facts: Fact[]; text: string[] } {
     text: [
       `The patient is now ${ctx.after.position.name}. Measured on the image from the line through the spinous processes: the right SC joint was ${offsetPhrase(b.rM, MID)}; it is now ${offsetPhrase(a.rM, MID)}. The left SC joint was ${offsetPhrase(b.lM, MID)}; it is now ${offsetPhrase(a.lM, MID)}.${crossNote}`,
       `Why: the SC joints are on the front of the thorax and the spinous processes on the back, about ${f1(Math.abs(sep))} cm apart front-to-back. When the thorax turns about its long axis, front and back structures sweep sideways in opposite directions, so on the image the spine slides one way and the SC joints the other.`,
-      `So the ${closer} SC joint now sits closer to the spine. It is the one ${nearFar} the IR (OID ${f1(closerOid)} cm vs ${f1(otherOid)} cm).`,
-      `Check: with a parallel beam (no magnification) the right SC joint is ${offsetPhrase(pr.rM, MID)} and the left is ${offsetPhrase(pr.lM, MID)} — nearly the same asymmetry. The effect comes from rotation, not from beam divergence. (Landmark positions: R SC ${lm.rSC.display.map(f1).join(", ")}, L SC ${lm.lSC.display.map(f1).join(", ")} cm from image centre.)`,
+      `So the ${closer} SC joint now projects nearer the spine, and here that is the joint ${nearFar} the IR (OID ${f1(closerOid)} cm against ${f1(otherOid)} cm). That pairing is not a rule and does not generalise: which joint ends up nearer the spine follows from the direction of the turn, by the mechanism above. Starting from an AP it is the joint farther from the IR; starting from a PA it is the one closer to it.`,
+      `Check: with a parallel beam (no magnification) the right SC joint is ${offsetPhrase(pr.rM, MID)}; the left is ${offsetPhrase(pr.lM, MID)} — nearly the same asymmetry. The effect comes from rotation, not from beam divergence. (Landmark positions: R SC ${lm.rSC.display.map(f1).join(", ")}, L SC ${lm.lSC.display.map(f1).join(", ")} cm from image centre.)`,
     ],
   };
 }
@@ -121,7 +121,12 @@ function heartWidthEvaluation(ctx: EvalContext): { correct: string; facts: Fact[
       { label: "Heart width on image", before: b, after: a, unit: "cm" },
       { label: "Magnification at cardiac apex", before: ctx.before.landmarks.heartApex.magnification, after: ctx.after.landmarks.heartApex.magnification, unit: "×" },
       { label: "Cardiac apex OID", before: ctx.before.landmarks.heartApex.oidCm, after: ctx.after.landmarks.heartApex.oidCm, unit: "cm" },
-      { label: "SID", before: ctx.start.sidCm, after: ctx.end.sidCm, unit: "cm" },
+      // Named explicitly because it sits one row under a magnification, and
+      // magnification is SID/SOD measured PERPENDICULAR to the IR, which is
+      // SID·cos(CR angle). The two agree only while the CR is perpendicular,
+      // as it is in both magnification scenarios, so the row is not wrong -
+      // it just does not say which SID it is.
+      { label: "SID (along the central ray)", before: ctx.start.sidCm, after: ctx.end.sidCm, unit: "cm" },
     ],
   };
 }

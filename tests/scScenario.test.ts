@@ -77,6 +77,40 @@ describe("all scenarios", () => {
     });
   }
 
+  it("does not teach the OID pairing as a rule, because it is not one", () => {
+    // The app's own two SC scenarios are a matched pair that disprove it:
+    // measured, on the AP the joint nearer the spine is the one FARTHER from
+    // the IR (OID 21.3 vs 20.0) and on the PA it is the one CLOSER to it
+    // (6.8 vs 7.7). Stating the two facts side by side with nothing between
+    // them reads as a rule that holds for one of them and fails for the other.
+    const sides: string[] = [];
+    for (const id of ["ap-right-anterior", "pa-rao"]) {
+      const run = runScenario(chest, byId(id));
+      const a = run.after;
+      const nearSpine = a.measurements["rSC-mid"].distance < a.measurements["lSC-mid"].distance ? "rSC" : "lSC";
+      const other = nearSpine === "rSC" ? "lSC" : "rSC";
+      sides.push(a.landmarks[nearSpine].oidCm > a.landmarks[other].oidCm ? "farther" : "closer");
+
+      const text = run.evaluation.explanation.join(" ");
+      expect(text, id).toContain("not a rule");
+      expect(text, id).toContain("Starting from an AP it is the joint farther from the IR");
+      expect(text, id).toContain("starting from a PA it is the one closer to it");
+    }
+    // The premise: the pair really does go both ways. If it ever stops doing
+    // so, the caveat above is the thing that has become wrong.
+    expect(sides).toEqual(["farther", "closer"]);
+  });
+
+  it("names which SID the facts table is showing", () => {
+    // SID is measured along the central ray; the magnification beside it uses
+    // the perpendicular distance, SID·cos(angle). Equal only at CR 0.
+    for (const id of ["pa-oid", "pa72-vs-ap40"]) {
+      const labels = runScenario(chest, byId(id)).evaluation.facts.map((f) => f.label);
+      expect(labels, id).toContain("SID (along the central ray)");
+      expect(labels, id).not.toContain("SID");
+    }
+  });
+
   it("scenarios have a signed SC offset in every state", () => {
     // scenarios/chest.ts falls back to the unsigned distance if an offset is
     // ever null. Every scenario state is AP/PA or oblique, so it never is;
