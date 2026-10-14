@@ -1,5 +1,7 @@
 # Projection Trainer
 
+**Live: https://atwigt.github.io/projection-trainer/**
+
 A single-page teaching app for radiologic technology students. It shows a
 simplified 3D thorax, the X-ray tube, the central ray and the image receptor
 on the left. On the right is the live 2D radiograph produced by projecting
@@ -15,24 +17,29 @@ projections.
 Requires Node 18+.
 
 ```bash
-cd radiography-trainer
 npm install
 npm run dev        # open the printed URL (http://localhost:5173)
 npm test           # projection-math and scenario tests
 npm run build      # static site in dist/ (can be opened from any web server)
 ```
 
-## Hosting (Railway)
+## Hosting
+
+**GitHub Pages is the live host.** `.github/workflows/pages.yml` runs on every
+push to `main`: it installs the locked dependencies, runs the tests, builds, and
+only then publishes `dist/`. A commit that fails the tests or the type check
+does not replace the live site.
+
+`vite.config.ts` sets `base: "./"`, so the built site works from any subpath and
+needs no Pages-specific rewrite.
+
+### Railway (alternative, not currently used)
 
 `railway.json` and `npm start` (a dependency-free static server, `server.mjs`)
-are set up for Railway. In Railway:
-
-1. New Project → Deploy from GitHub repo → pick this repository.
-2. Service Settings → Root Directory: `/radiography-trainer`.
-3. Networking → Generate Domain.
-
-Railway builds with `npm run build`, starts with `npm start` and listens on its
-`$PORT`.
+are kept for Railway. In Railway: New Project → Deploy from GitHub repo → pick
+this repository → Networking → Generate Domain. No root directory is needed; the
+app is at the repository root. Railway builds with `npm run build`, starts with
+`npm start` and listens on its `$PORT`.
 
 ## How the geometry works
 

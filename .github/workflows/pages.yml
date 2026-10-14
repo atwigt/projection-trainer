@@ -1,0 +1,68 @@
+# Builds the app and publishes it to GitHub Pages.
+#
+# How this works, briefly: GitHub runs this file on a fresh Linux machine every
+# time `main` changes. The machine checks out the code, installs the exact
+# dependency versions from package-lock.json, runs the tests, builds the static
+# site into `dist/`, and hands `dist/` to Pages. Nothing is deployed unless the
+# tests and the build both succeed, so a broken commit cannot replace a working
+# site.
+name: Deploy to GitHub Pages
+
+on:
+  # Deploy whenever main moves.
+  push:
+    branches: [main]
+  # And allow a manual run from the Actions tab, for redeploying without a commit.
+  workflow_dispatch:
+
+# Permissions this workflow needs. `pages: write` and `id-token: write` are what
+# the official Pages deploy action requires; `contents: read` is just to check out.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# If two pushes land close together, let the newer one finish rather than
+# cancelling it — but don't run two deploys at the same time.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json pins, unlike
+      # `npm install` which may quietly upgrade things.
+      - run: npm ci
+
+      # The gate. 28 unit tests covering the projection geometry.
+      - run: npm test
+
+      # `npm run build` is `tsc --noEmit && vite build` — type errors fail here.
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      # Hand the built site to Pages. `dist` is Vite's output directory.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    # Only runs if `build` succeeded.
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
