@@ -1,26 +1,25 @@
+import { offsetShort, symmetryVerdict } from "../../geometry/measurementText";
 import { body, useStore } from "../../state/store";
 import { useImage } from "../../state/useImage";
 import { Card } from "./Controls";
 
 const SYMMETRY_TOL = 0.3; // cm
 
+const SC_PAIR = {
+  right: "rSC-mid",
+  left: "lSC-mid",
+  noun: "SC joints",
+  from: "the spinous processes",
+};
+
 export function Measurements() {
   const bodyId = useStore((s) => s.bodyId);
   const img = useImage();
   const b = body(bodyId);
-  const r = img.measurements["rSC-mid"]?.distance;
-  const l = img.measurements["lSC-mid"]?.distance;
 
-  let verdict: string | null = null;
-  if (img.position.isLateral) {
-    verdict = "SC-joint symmetry is judged on AP/PA (and oblique) images, not laterals.";
-  } else if (r !== undefined && l !== undefined) {
-    const diff = r - l;
-    verdict =
-      Math.abs(diff) < SYMMETRY_TOL
-        ? "SC joints equidistant from the spine: no rotation evident."
-        : `${diff < 0 ? "Right" : "Left"} SC joint is ${Math.abs(diff).toFixed(1)} cm closer to the spine: rotation present.`;
-  }
+  const verdict = img.position.isLateral
+    ? "SC-joint symmetry is judged on AP/PA (and oblique) images, not laterals."
+    : symmetryVerdict(img.measurements, SC_PAIR, SYMMETRY_TOL);
 
   return (
     <Card title="Measurements">
@@ -28,14 +27,16 @@ export function Measurements() {
         <tbody>
           {b.measurements.map((m) => {
             const color = b.landmarks.find((x) => x.id === m.point)?.color;
-            const v = img.measurements[m.id]?.distance;
+            const v = img.measurements[m.id];
             return (
               <tr key={m.id}>
                 <td>
                   <span className="dot" style={{ background: color }} />
                   {m.label}
                 </td>
-                <td className="num">{v === undefined ? "–" : `${v.toFixed(1)} cm`}</td>
+                <td className={v?.crossed ? "num crossed" : "num"}>
+                  {v === undefined ? "–" : offsetShort(v)}
+                </td>
               </tr>
             );
           })}

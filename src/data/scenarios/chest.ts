@@ -3,7 +3,8 @@
  * the correct choice and the explanation from those measurements. Nothing
  * here says "rotation X moves landmark Y"; that is left to the projection.
  */
-import { type ImageResult, shapeExtent } from "../../geometry/image";
+import { type ImageResult, type MeasurementResult, shapeExtent } from "../../geometry/image";
+import { offsetPhrase } from "../../geometry/measurementText";
 import type { PositioningState } from "../types";
 import type { EvalContext, Evaluation, Fact, Scenario } from "./types";
 
@@ -28,17 +29,27 @@ const trend = (before: number, after: number) =>
 const sc = (img: ImageResult) => ({
   r: img.measurements["rSC-mid"].distance,
   l: img.measurements["lSC-mid"].distance,
+  rM: img.measurements["rSC-mid"],
+  lM: img.measurements["lSC-mid"],
   rOid: img.landmarks.rSC.oidCm,
   lOid: img.landmarks.lSC.oidCm,
 });
+
+/**
+ * Signed offset for the facts table, + toward the patient's left. Every state
+ * these scenarios use is AP/PA or oblique, so the offset is always present;
+ * `scenarios have a signed SC offset in every state` in tests/scScenario.test.ts
+ * pins that, so the fallback is unreachable rather than merely unlikely.
+ */
+const offsetCm = (m: MeasurementResult) => m.offset ?? m.distance;
 
 /** Shared facts + explanation for the SC-joint rotation scenarios. */
 function scExplanation(ctx: EvalContext): { facts: Fact[]; text: string[] } {
   const b = sc(ctx.before);
   const a = sc(ctx.after);
   const facts: Fact[] = [
-    { label: "R SC joint → spine midline", before: b.r, after: a.r, unit: "cm" },
-    { label: "L SC joint → spine midline", before: b.l, after: a.l, unit: "cm" },
+    { label: "R SC joint → spine midline (+ = pt's left)", before: offsetCm(b.rM), after: offsetCm(a.rM), unit: "cm", signed: true },
+    { label: "L SC joint → spine midline (+ = pt's left)", before: offsetCm(b.lM), after: offsetCm(a.lM), unit: "cm", signed: true },
     { label: "R SC joint OID", before: b.rOid, after: a.rOid, unit: "cm" },
     { label: "L SC joint OID", before: b.lOid, after: a.lOid, unit: "cm" },
   ];
@@ -51,13 +62,21 @@ function scExplanation(ctx: EvalContext): { facts: Fact[]; text: string[] } {
   const sep = ctx.before.landmarks.rSC.world[2] - ctx.before.landmarks.spT2.world[2];
   const par = ctx.compute({ ...ctx.end, beam: "parallel" });
   const pr = sc(par);
+  const MID = "the midline";
+  const crossedNames = [
+    ...(a.rM.crossed ? ["right"] : []),
+    ...(a.lM.crossed ? ["left"] : []),
+  ];
+  const crossNote = crossedNames.length
+    ? ` Read the sides carefully: the ${crossedNames.join(" and ")} SC joint${crossedNames.length > 1 ? "s have" : " has"} crossed the midline, so that distance is measured PAST the spinous processes and not short of them.`
+    : "";
   return {
     facts,
     text: [
-      `The patient is now ${ctx.after.position.name}. Measured on the image, the right SC joint went from ${f1(b.r)} to ${f1(a.r)} cm from the spine midline and the left from ${f1(b.l)} to ${f1(a.l)} cm.`,
+      `The patient is now ${ctx.after.position.name}. Measured on the image from the line through the spinous processes: the right SC joint was ${offsetPhrase(b.rM, MID)}; it is now ${offsetPhrase(a.rM, MID)}. The left SC joint was ${offsetPhrase(b.lM, MID)}; it is now ${offsetPhrase(a.lM, MID)}.${crossNote}`,
       `Why: the SC joints are on the front of the thorax and the spinous processes on the back, about ${f1(Math.abs(sep))} cm apart front-to-back. When the thorax turns about its long axis, front and back structures sweep sideways in opposite directions, so on the image the spine slides one way and the SC joints the other.`,
       `So the ${closer} SC joint now sits closer to the spine. It is the one ${nearFar} the IR (OID ${f1(closerOid)} cm vs ${f1(otherOid)} cm).`,
-      `Check: with a parallel beam (no magnification) the distances are ${f1(pr.r)} cm (R) and ${f1(pr.l)} cm (L), nearly the same asymmetry. The effect comes from rotation, not from beam divergence. (Landmark positions: R SC ${lm.rSC.display.map(f1).join(", ")}, L SC ${lm.lSC.display.map(f1).join(", ")} cm from image centre.)`,
+      `Check: with a parallel beam (no magnification) the right SC joint is ${offsetPhrase(pr.rM, MID)} and the left is ${offsetPhrase(pr.lM, MID)} — nearly the same asymmetry. The effect comes from rotation, not from beam divergence. (Landmark positions: R SC ${lm.rSC.display.map(f1).join(", ")}, L SC ${lm.lSC.display.map(f1).join(", ")} cm from image centre.)`,
     ],
   };
 }

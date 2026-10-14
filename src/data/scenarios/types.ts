@@ -6,6 +6,12 @@ export interface Fact {
   before: number;
   after: number;
   unit: string;
+  /**
+   * The value carries a direction, so show the sign on positives too. Without
+   * it a column reading "2.7 → -1.2" hides the only character that says the
+   * landmark changed sides.
+   */
+  signed?: boolean;
 }
 
 export interface Evaluation {

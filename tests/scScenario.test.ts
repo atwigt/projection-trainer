@@ -34,6 +34,28 @@ describe("SC joint scenario: AP chest, right thorax rotated 15° anteriorly", ()
     expect(run.after.landmarks.rSC.oidCm).toBeGreaterThan(run.after.landmarks.lSC.oidCm);
     expect(run.evaluation.correct).toBe("rCloser");
   });
+
+  it("at 15° the right SC joint has already crossed the midline, and the text says so", () => {
+    // 15° is past the ≈10° crossing, so "1.2 cm from the spine midline" is
+    // 1.2 cm PAST it. The whole scenario turns on the reader seeing that.
+    expect(before["rSC-mid"].side).toBe("R");
+    expect(after["rSC-mid"].side).toBe("L");
+    expect(after["rSC-mid"].crossed).toBe(true);
+    expect(after["lSC-mid"].crossed).toBe(false);
+
+    const text = run.evaluation.explanation.join(" ");
+    expect(text).toContain("past the midline, on the patient's left");
+    expect(text).toMatch(/right SC joint ha(s|ve) crossed the midline/);
+    // No readout may state a bare distance from the midline with no side.
+    expect(text).not.toMatch(/cm from the spine midline/);
+
+    // The facts table shows the signed offset, with the sign flipping.
+    const rFact = run.evaluation.facts.find((f) => f.label.startsWith("R SC joint →"))!;
+    expect(rFact.signed).toBe(true);
+    expect(rFact.label).toContain("+ = pt's left");
+    expect(rFact.before).toBeLessThan(0);
+    expect(rFact.after).toBeGreaterThan(0);
+  });
 });
 
 describe("SC joint scenario: PA chest, ≈ 10° RAO", () => {
@@ -54,6 +76,20 @@ describe("all scenarios", () => {
       expect(run.evaluation.explanation.length).toBeGreaterThan(0);
     });
   }
+
+  it("scenarios have a signed SC offset in every state", () => {
+    // scenarios/chest.ts falls back to the unsigned distance if an offset is
+    // ever null. Every scenario state is AP/PA or oblique, so it never is;
+    // this is the assertion that keeps that fallback unreachable.
+    for (const s of chestScenarios) {
+      const run = runScenario(chest, s);
+      for (const img of [run.before, run.after])
+        for (const id of ["rSC-mid", "lSC-mid"]) {
+          expect(img.measurements[id].offset, `${s.id} ${id}`).not.toBeNull();
+          expect(img.measurements[id].side, `${s.id} ${id}`).not.toBeNull();
+        }
+    }
+  });
 
   it("lordotic and cephalic-CR scenarios both lift the clavicles above the apices", () => {
     for (const id of ["ap-lordotic", "ap-axial-cephalic"]) {

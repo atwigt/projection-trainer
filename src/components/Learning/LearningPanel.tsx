@@ -1,7 +1,11 @@
 import { scenariosFor, useStore } from "../../state/store";
 import { Card } from "../Controls/Controls";
 
-const fmt = (v: number, unit: string) => (unit === "×" ? `${v.toFixed(3)}×` : `${v.toFixed(1)} ${unit}`);
+const fmt = (v: number, unit: string, signed = false) => {
+  if (unit === "×") return `${v.toFixed(3)}×`;
+  const sign = signed && v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(1)} ${unit}`;
+};
 
 export function LearningPanel() {
   const bodyId = useStore((s) => s.bodyId);
@@ -92,8 +96,8 @@ export function LearningPanel() {
               {ev.facts.map((f) => (
                 <tr key={f.label}>
                   <td>{f.label}</td>
-                  <td className="num">{fmt(f.before, f.unit)}</td>
-                  <td className="num">{fmt(f.after, f.unit)}</td>
+                  <td className="num">{fmt(f.before, f.unit, f.signed)}</td>
+                  <td className="num">{fmt(f.after, f.unit, f.signed)}</td>
                 </tr>
               ))}
             </tbody>

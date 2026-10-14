@@ -409,6 +409,14 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* A landmark that has crossed the line it is measured from. Allowed to wrap:
+   the sign is the point of the readout, so it must not be clipped. */
+.measure .num.crossed {
+  color: var(--no);
+  font-weight: 600;
+  white-space: normal;
+}
+
 .dot {
   display: inline-block;
   width: 9px;

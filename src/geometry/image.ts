@@ -41,6 +41,23 @@ export interface MeasurementResult {
   label: string;
   /** Unsigned horizontal distance, cm on the image. */
   distance: number;
+  /**
+   * Signed horizontal offset of the point from the line, cm on the image,
+   * with + toward the patient's LEFT. `distance` is its magnitude.
+   *
+   * The sign is the whole point: a point 1.2 cm past the line reads as 1.2 cm
+   * short of it if only the magnitude is shown, which is the opposite picture.
+   * null when the image has no left/right axis to sign against (laterals, and
+   * any pose whose left-right axis ends up edge-on to the beam).
+   */
+  offset: number | null;
+  /** Patient's side the point projects on. null whenever `offset` is null. */
+  side: "R" | "L" | null;
+  /**
+   * True when the point projects on the opposite side of the line from the
+   * side it occupies in the body: it has crossed the line.
+   */
+  crossed: boolean;
 }
 
 export interface ImageResult {
@@ -109,6 +126,17 @@ export function computeImage(body: BodyPart, s: PositioningState): ImageResult {
     convention = "Anatomical position: patient's right on viewer's left";
   }
 
+  // Which way the patient's left ends up on the display x axis. The mirror
+  // above is applied exactly when the patient's left points along world −X, so
+  // for AP/PA/obliques this always comes out +1; deriving it instead of
+  // writing +1 keeps the side naming tied to the mirror rule rather than to a
+  // second, independent assumption about it. It is 0 on laterals, and also on
+  // the (reachable) poses where tilt and lordotic angle leave the left-right
+  // axis edge-on to the beam, where there is genuinely no side to name.
+  const patientLeftOnX = position.isLateral
+    ? 0
+    : Math.sign(flipped ? -leftWorld[0] : leftWorld[0]);
+
   const landmarks: Record<string, ProjectedLandmark> = {};
   for (const lm of body.landmarks) {
     const w = toWorld(setup, lm.position);
@@ -136,7 +164,22 @@ export function computeImage(body: BodyPart, s: PositioningState): ImageResult {
     const p = landmarks[m.point]?.display;
     const line = m.line.map((id) => landmarks[id]?.display).filter((v): v is Vec2 => !!v);
     if (!p || line.length < 2) continue;
-    measurements[m.id] = { id: m.id, label: m.label, distance: Math.abs(p[0] - lineXAt(line, p[1])) };
+    const displayOffset = p[0] - lineXAt(line, p[1]);
+    const offset = patientLeftOnX === 0 ? null : displayOffset * patientLeftOnX;
+    const side = offset === null ? null : offset > 0 ? "L" : "R";
+    // The side this point occupies in the body (+x = patient's left), so a
+    // point that has swapped sides on the image can be told from one that has
+    // merely moved. A midline point has no side and so can never cross.
+    const bodyX = body.landmarks.find((lm) => lm.id === m.point)?.position[0] ?? 0;
+    const ownSide = bodyX === 0 ? null : bodyX > 0 ? "L" : "R";
+    measurements[m.id] = {
+      id: m.id,
+      label: m.label,
+      distance: Math.abs(displayOffset),
+      offset,
+      side,
+      crossed: side !== null && ownSide !== null && side !== ownSide,
+    };
   }
 
   return { setup, position, flipped, convention, markers, landmarks, shapes, measurements };

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Landmark } from "../../data/types";
 import { type ImageResult, type Shape2D, lineXAt } from "../../geometry/image";
+import { offsetShort } from "../../geometry/measurementText";
 import type { Vec2 } from "../../geometry/vec";
 import { body, useStore } from "../../state/store";
 import { useImage, useReferenceImage } from "../../state/useImage";
@@ -119,7 +120,16 @@ export function Radiograph2D() {
         const p = img.landmarks[m.point].display;
         const line = m.line.map((id) => img.landmarks[id].display);
         const color = b.landmarks.find((l) => l.id === m.point)?.color ?? "#fff";
-        return { id: m.id, p, x: lineXAt(line, p[1]), line, color, value: img.measurements[m.id]?.distance };
+        const value = img.measurements[m.id];
+        return {
+          id: m.id,
+          p,
+          x: lineXAt(line, p[1]),
+          line,
+          color,
+          text: value ? offsetShort(value) : "–",
+          crossed: value?.crossed ?? false,
+        };
       }),
     [b, img],
   );
@@ -224,10 +234,16 @@ export function Radiograph2D() {
 
         {measure && (
           <g fontSize={0.95}>
-            <rect x={-W / 2 + 0.6} y={H / 2 - 1.2 - 1.4 * measureLines.length} width={15} height={1.4 * measureLines.length + 0.5} rx={0.3} fill="#000" fillOpacity={0.55} />
+            <rect x={-W / 2 + 0.6} y={H / 2 - 1.2 - 1.4 * measureLines.length} width={24} height={1.4 * measureLines.length + 0.5} rx={0.3} fill="#000" fillOpacity={0.55} />
             {measureLines.map((m, i) => (
-              <text key={m.id} x={-W / 2 + 1.1} y={H / 2 - 1.4 * (measureLines.length - i) + 0.2} fill={m.color}>
-                {b.measurements[i].label}: {m.value?.toFixed(1)} cm
+              <text
+                key={m.id}
+                x={-W / 2 + 1.1}
+                y={H / 2 - 1.4 * (measureLines.length - i) + 0.2}
+                fill={m.color}
+                fontWeight={m.crossed ? 700 : 400}
+              >
+                {b.measurements[i].label}: {m.text}
               </text>
             ))}
           </g>
