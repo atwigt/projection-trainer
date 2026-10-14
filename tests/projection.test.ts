@@ -108,6 +108,46 @@ describe("display convention", () => {
     });
   }
 
+  // Laterals take a different branch in computeImage, and nothing watched it:
+  // the lead marker and the A/P edges could both be inverted and the suite
+  // would stay green. Both expectations below are derived from measured
+  // geometry — which SC joint is nearer the IR, and which way an anterior
+  // landmark projects — rather than read back off the table that produced
+  // them, so a coordinated flip of the branch cannot satisfy them.
+  for (const presetId of ["LLAT", "RLAT"]) {
+    it(`${presetId}: the lead marker names the side against the IR, and A/P match the anatomy`, () => {
+      const img = computeImage(chest, { ...base, presetId });
+      expect(img.position.isLateral).toBe(true);
+      expect(img.flipped).toBe(false);
+
+      // The side against the IR is the one with the smaller OID.
+      const nearer = img.landmarks.lSC.oidCm < img.landmarks.rSC.oidCm ? "L" : "R";
+      expect(img.markers.lateralSide).toBe(nearer);
+      expect(img.convention).toContain(nearer === "L" ? "left side against IR" : "right side against IR");
+
+      // The edge labelled A is the edge an anterior landmark projects toward.
+      // The jugular notch is anterior, the T7 spinous process posterior.
+      const anteriorIsRight = img.landmarks.jn.display[0] > img.landmarks.spT7.display[0];
+      expect(img.markers.right).toBe(anteriorIsRight ? "A" : "P");
+      expect(img.markers.left).toBe(anteriorIsRight ? "P" : "A");
+
+      // A lateral has no left/right edge to label, so it must not claim one.
+      expect([img.markers.left, img.markers.right]).not.toContain("R");
+      expect([img.markers.left, img.markers.right]).not.toContain("L");
+    });
+  }
+
+  it("the two laterals are mirror images of each other, not the same image", () => {
+    // Pins the pair against a flip that inverts both consistently: swapping
+    // the sides of the branch leaves each one self-consistent, but it cannot
+    // keep the two of them opposite AND keep each one matching its own OIDs.
+    const llat = computeImage(chest, { ...base, presetId: "LLAT" });
+    const rlat = computeImage(chest, { ...base, presetId: "RLAT" });
+    expect(llat.markers.lateralSide).not.toBe(rlat.markers.lateralSide);
+    expect(llat.markers.left).toBe(rlat.markers.right);
+    expect(llat.landmarks.jn.display[0]).toBeCloseTo(-rlat.landmarks.jn.display[0], 6);
+  });
+
   it("PA images are mirrored relative to the tube's view, AP images are not", () => {
     expect(computeImage(chest, { ...base, presetId: "PA" }).flipped).toBe(true);
     expect(computeImage(chest, { ...base, presetId: "AP" }).flipped).toBe(false);
